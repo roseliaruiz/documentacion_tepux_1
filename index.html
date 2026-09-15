@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Tepux — Arquitectura y flujos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+<style>
+  :root{
+    --carbon:#131316; --carbon-2:#1A1B20; --carbon-3:#202127; --paper:#FFFFFF;
+    --line:rgba(255,255,255,0.09); --line-2:rgba(255,255,255,0.14);
+    --line-soft:rgba(0,0,0,0.1); --muted:#8D8D96; --muted-dark:#6B6B70;
+    --accent:#FFC300; --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--carbon);color:#fff;
+       -webkit-font-smoothing:antialiased;}
+
+  .shell{display:flex;min-height:100vh;}
+
+  aside{width:264px;flex-shrink:0;background:var(--carbon-2);border-right:1px solid var(--line);
+        padding:26px 0 26px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  aside .brand{padding:0 24px 20px;border-bottom:1px solid var(--line);margin-bottom:20px;}
+  aside .brand .k{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;color:var(--accent);
+                  text-transform:uppercase;}
+  aside .brand h1{font-size:18px;margin:6px 0 0;font-weight:600;letter-spacing:-0.2px;}
+
+  .group{margin-bottom:24px;}
+  .group .gh{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;color:var(--muted);
+             text-transform:uppercase;padding:0 24px;margin-bottom:10px;}
+  .group button{display:flex;align-items:center;justify-content:space-between;gap:8px;
+      width:calc(100% - 16px);margin:0 8px 2px;text-align:left;appearance:none;border:none;
+      background:none;border-radius:7px;padding:8px 14px;font-size:13px;color:var(--muted);
+      cursor:pointer;font-family:var(--sans);}
+  .group button .cnt{font-family:var(--mono);font-size:10px;color:var(--muted-dark);}
+  .group button:hover{color:#fff;background:rgba(255,255,255,0.045);}
+  .group button.active{color:#fff;background:rgba(255,195,0,0.11);font-weight:600;}
+  .group button.active .cnt{color:var(--accent);}
+
+  main{flex:1;padding:48px 52px 90px;max-width:960px;}
+  section{display:none;}
+  section.active{display:block;}
+  section .kicker{font-family:var(--mono);font-size:11px;letter-spacing:1.2px;color:var(--accent);
+                  text-transform:uppercase;margin-bottom:10px;}
+  section h2{font-size:26px;margin:0 0 8px;font-weight:600;letter-spacing:-0.3px;}
+  section .desc{color:var(--muted);font-size:14px;margin:0 0 30px;max-width:580px;line-height:1.6;}
+
+  .card{background:var(--paper);color:#15161A;border:1px solid var(--line-2);border-radius:10px;
+        padding:22px;margin-bottom:18px;}
+  .card h3{font-family:var(--mono);font-size:11.5px;margin:0;color:var(--muted-dark);
+           text-transform:uppercase;letter-spacing:0.6px;font-weight:500;}
+  .card .note{font-size:12px;color:var(--muted-dark);margin-top:14px;border-top:1px solid var(--line-soft);
+              padding-top:12px;}
+  .mermaid{display:flex;justify-content:center;}
+
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+             margin-bottom:14px;flex-wrap:wrap;}
+
+  .toolbar{display:flex;align-items:stretch;gap:0;flex-shrink:0;border:1px solid var(--line-soft);
+      border-radius:7px;overflow:hidden;background:#FAFAF7;}
+  .toolbar button{appearance:none;border:none;border-right:1px solid var(--line-soft);
+      background:transparent;color:#15161A;width:28px;height:26px;font-size:14px;
+      cursor:pointer;line-height:1;font-family:var(--sans);display:flex;align-items:center;justify-content:center;}
+  .toolbar button:last-child{border-right:none;}
+  .toolbar button:hover{background:#EFEEE8;}
+  .toolbar .lvl{font-family:var(--mono);font-size:10.5px;color:var(--muted-dark);width:42px;
+      text-align:center;display:flex;align-items:center;justify-content:center;
+      border-right:1px solid var(--line-soft);background:#FAFAF7;flex-shrink:0;}
+  .toolbar .fit-btn,.toolbar .fs-btn{width:auto;padding:0 10px;font-size:10.5px;font-family:var(--mono);
+      letter-spacing:0.2px;}
+
+  .viewport{position:relative;overflow:hidden;background:
+      radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px) 0 0/16px 16px, #FDFDFB;
+      border:1px solid var(--line-soft);border-radius:7px;height:340px;cursor:grab;touch-action:none;}
+  .viewport.dragging{cursor:grabbing;}
+  .stage{position:absolute;top:0;left:0;transform-origin:0 0;display:inline-block;}
+  .stage .mermaid{display:block;}
+
+  .card.expanded{position:fixed;inset:22px;z-index:999;margin:0;display:flex;flex-direction:column;
+      border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,0.5), 0 0 0 2000px rgba(9,9,11,0.82);}
+  .card.expanded .viewport{flex:1;height:auto;}
+  body.has-expanded{overflow:hidden;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-soft);}
+  th{font-family:var(--mono);color:var(--muted-dark);font-weight:500;font-size:10.5px;
+     text-transform:uppercase;letter-spacing:0.5px;}
+  tr:last-child td{border-bottom:none;}
+
+  footer{padding:0 52px 40px;color:var(--muted-dark);font-family:var(--mono);font-size:11px;}
+
+  @media (max-width: 820px){
+    .shell{flex-direction:column;}
+    aside{width:100%;height:auto;position:relative;padding:18px 0;}
+    main{padding:30px 22px 70px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside>
+    <div class="brand">
+      <div class="k">Tepux · documentación</div>
+      <h1>Arquitectura y flujos</h1>
+    </div>
+    <div id="sidebar"></div>
+  </aside>
+  <main id="panels"></main>
+</div>
+
+<footer>Tepux · documentación de producto · arrastra para mover, rueda del mouse para zoom</footer>
+
+<script>
+mermaid.initialize({
+  startOnLoad:false,
+  theme:'base',
+  themeVariables:{
+    primaryColor:'#EEEDFE',
+    primaryTextColor:'#15161A',
+    primaryBorderColor:'#3C3489',
+    lineColor:'#8A8A85',
+    fontFamily:'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
+    fontSize:'13px'
+  }
+});
+
+const sections = [
+  // ---------- APP ----------
+  {
+    group:'App', id:'sitemap', label:'Sitemap',
+    title:'Estructura de tabs', kicker:'App · arquitectura',
+    desc:'Cinco tabs principales, onboarding y panel de aliado comercial como flujo separado.',
+    cards:[
+      {h:'App Tepux — tabs y pantallas', code:`graph TD
+    APP["App Tepux"] --> OB["Onboarding<br/>Splash · 3 slides · perfil · permisos · gamificación"]
+    APP --> TAB1["Home"]
+    APP --> TAB2["Explorar"]
+    APP --> TAB3["Eventos"]
+    APP --> TAB4["Favoritos"]
+    APP --> TAB5["Perfil"]
+    APP --> ALIADO["Panel aliado<br/>flujo separado"]
+
+    TAB1 --> H1["Saludo + nivel explorador"]
+    TAB1 --> H2["Ficha destacada"]
+    TAB1 --> H3["Experiencias populares"]
+    TAB1 --> H4["Eventos cercanos + countdown"]
+    TAB1 --> H5["Historia del día"]
+    TAB1 --> H6["Reto activo"]
+
+    TAB2 --> MAPA["Mapa interactivo<br/>Pins por categoría · filtros · toggle lista"]
+    TAB2 --> BUSQ["Buscador global"]
+    TAB2 --> CAT1["Sabor local"]
+    TAB2 --> CAT2["Memoria viva"]
+    TAB2 --> CAT3["Alojamiento"]
+    TAB2 --> CAT4["Servicios esenciales"]
+    TAB2 --> CAT5["Rutas sugeridas"]
+    TAB2 --> FICHA["Ficha de lugar<br/>template universal"]
+
+    TAB3 --> EV1["Agenda mensual"]
+    TAB3 --> EV2["Filtros: cultural / gastro / ferias"]
+    TAB3 --> EV3["Evento destacado"]
+    TAB3 --> EV4["Asistir = puntos"]
+
+    TAB4 --> FAV1["Lugares guardados"]
+    TAB4 --> FAV2["Rutas guardadas"]
+    TAB4 --> FAV3["Eventos guardados"]
+    TAB4 --> FAV4["Modo offline"]
+
+    TAB5 --> P1["Mi explorador<br/>Nivel · puntos · insignias"]
+    TAB5 --> P2["Mi cuenta"]
+    TAB5 --> P3["Mis reseñas"]
+    TAB5 --> P4["Configuración"]
+
+    style APP fill:#2C2C2A,color:#fff
+    style TAB1 fill:#534AB7,color:#EEEDFE
+    style TAB2 fill:#534AB7,color:#EEEDFE
+    style TAB3 fill:#534AB7,color:#EEEDFE
+    style TAB4 fill:#534AB7,color:#EEEDFE
+    style TAB5 fill:#534AB7,color:#EEEDFE
+    style ALIADO fill:#FBEAF0,color:#72243E
+    style MAPA fill:#E1F5EE,color:#085041
+    style FICHA fill:#E6F1FB,color:#0C447C`},
+      {h:'Panel aliado comercial', code:`graph TD
+    LOGIN["Login aliado"] --> DASH["Dashboard<br/>Visitas · clics · guardados · reseñas"]
+    DASH --> ED["Editar ficha"]
+    DASH --> RES["Reseñas"]
+    DASH --> EVT["Eventos"]
+    DASH --> STATS["Estadísticas"]
+    DASH --> PLAN["Plan de visibilidad<br/>Básico vs Premium"]
+    PLAN -->|Sigue gratis| BASICO["Plan básico"]
+    PLAN -->|Upgrade| PREM["Plan premium"]
+    PREM --> REWARD["Crear recompensa<br/>exclusivo Premium"]
+
+    style LOGIN fill:#FBEAF0,color:#72243E
+    style DASH fill:#FBEAF0,color:#72243E
+    style PLAN fill:#FAECE7,color:#712B13
+    style BASICO fill:#F1EFE8,color:#444441
+    style PREM fill:#E1F5EE,color:#085041
+    style REWARD fill:#FAECE7,color:#712B13`}
+    ]
+  },
+  {
+    group:'App', id:'onboarding', label:'Onboarding',
+    title:'Onboarding — primer uso', kicker:'App · flujo 1',
+    desc:'5 pantallas en ~45 segundos, hasta el home personalizado.',
+    cards:[
+      {h:'Descarga → home personalizado', code:`graph TD
+    DL["Descarga + abre app"] --> SPLASH["Splash<br/>Logo + tagline"]
+    SPLASH --> SLIDES["Bienvenida · 3 slides<br/>Explora · Descubre · Gana"]
+    SLIDES --> PERFIL["¿Quién eres?<br/>Visitante o Local"]
+    PERFIL -->|Visitante| VISIT["Feed: descubrimiento"]
+    PERFIL -->|Local| LOCAL["Feed: orgullo local"]
+    VISIT --> PERMISOS["Permisos<br/>Ubicación + notificaciones"]
+    LOCAL --> PERMISOS
+    PERMISOS --> GAME["Intro gamificación<br/>skip disponible"]
+    GAME --> HOME["Home personalizado"]
+
+    style DL fill:#F1EFE8,color:#444441
+    style SPLASH fill:#EEEDFE,color:#3C3489
+    style SLIDES fill:#EEEDFE,color:#3C3489
+    style PERFIL fill:#E1F5EE,color:#085041
+    style VISIT fill:#E1F5EE,color:#085041
+    style LOCAL fill:#E1F5EE,color:#085041
+    style PERMISOS fill:#EEEDFE,color:#3C3489
+    style GAME fill:#FAECE7,color:#712B13
+    style HOME fill:#E1F5EE,color:#085041`}
+    ]
+  },
+  {
+    group:'App', id:'exploracion', label:'Exploración',
+    title:'Exploración completa', kicker:'App · flujo 2',
+    desc:'3 entradas → ficha de detalle → rating/reseña. Cada acción suma puntos.',
+    cards:[
+      {h:'Home / mapa / buscador → ficha → reseña', code:`graph TD
+    HOME["Home"] -->|Ficha destacada| DEST["Destacado del día"]
+    HOME -->|CTA mapa| TAB["Tab Explorar"]
+    HOME -->|Buscar| BUSQ["Buscador global"]
+    DEST --> MAPA["Mapa interactivo"]
+    TAB --> MAPA
+    BUSQ --> MAPA
+    MAPA -->|Toca pin| PREVIEW["Preview en mapa"]
+    MAPA -->|Filtra| LISTA["Lista filtrada"]
+    PREVIEW --> FICHA["Ficha de lugar"]
+    LISTA --> FICHA
+    FICHA --> GUARDAR["Guardar · +5 pts"]
+    FICHA --> RATING["Rating 1-5 · +10 pts"]
+    FICHA --> COMPARTIR["Compartir · +15 pts"]
+    FICHA --> LLEGAR["Cómo llegar"]
+    RATING --> RESENA["Escribir reseña · +25 pts<br/>+10 con foto"]
+    RESENA --> PUB["Reseña publicada"]
+    PUB -->|Volver| MAPA
+    PUB -->|Siguiente| REL["Ver relacionados"]
+    REL --> FICHA
+
+    style HOME fill:#E1F5EE,color:#085041
+    style MAPA fill:#E1F5EE,color:#085041
+    style FICHA fill:#EEEDFE,color:#3C3489
+    style GUARDAR fill:#E1F5EE,color:#085041
+    style RATING fill:#FAECE7,color:#712B13
+    style COMPARTIR fill:#EEEDFE,color:#3C3489
+    style RESENA fill:#FAECE7,color:#712B13
+    style PUB fill:#E1F5EE,color:#085041`}
+    ]
+  },
+  {
+    group:'App', id:'gamificacion-flujo', label:'Gamificación (flujo)',
+    title:'Gamificación completa', kicker:'App · flujo 3',
+    desc:'Acción → puntos → insignia → canje con aliado.',
+    cards:[
+      {h:'Del punto al canje', code:`graph TD
+    ACT["👤 Usuario realiza una acción<br/>Rating · Reseña · Ruta · Favorito · Compartir · Evento"]
+    ACT --> EVAL["⚙️ Sistema evalúa · suma puntos"]
+    EVAL --> TOAST["🔔 Toast: +25 pts · tope 200/día"]
+    TOAST --> NIVEL["📊 Barra de nivel"]
+    TOAST --> INSIGNIA["🏅 Progreso de insignia"]
+    NIVEL -->|Sube| NEW_LVL["🎉 Nuevo nivel<br/>desbloquea recompensas"]
+    INSIGNIA -->|Completa| NEW_INS["🏆 Insignia nueva · +50 pts bonus"]
+    NEW_LVL --> PERFIL["👤 Perfil: Mi explorador"]
+    NEW_INS --> PERFIL
+    PERFIL --> REWARDS["🎁 Recompensas canjeables"]
+    REWARDS --> CANJE["✅ Canje confirmado · QR"]
+    CANJE --> VISITA["🏪 Visita al aliado<br/>muestra QR"]
+    VISITA -->|Sigue explorando| ACT
+
+    style ACT fill:#F1EFE8,color:#444441
+    style EVAL fill:#FAECE7,color:#712B13
+    style TOAST fill:#FAECE7,color:#712B13
+    style NIVEL fill:#EEEDFE,color:#3C3489
+    style INSIGNIA fill:#FAECE7,color:#712B13
+    style NEW_LVL fill:#E1F5EE,color:#085041
+    style NEW_INS fill:#E1F5EE,color:#085041
+    style PERFIL fill:#EEEDFE,color:#3C3489
+    style REWARDS fill:#FAECE7,color:#712B13
+    style CANJE fill:#E1F5EE,color:#085041
+    style VISITA fill:#E1F5EE,color:#085041`}
+    ]
+  },
+  {
+    group:'App', id:'aliado-flujo', label:'Aliado',
+    title:'Aliado comercial en la app', kicker:'App · flujo 4',
+    desc:'Dashboard, upgrade a premium y creación de recompensas.',
+    cards:[
+      {h:'Login / registro → premium activo', code:`graph TD
+    OPEN["Aliado abre la app"]
+    OPEN -->|Ya registrado| LOGIN["Login aliado"]
+    OPEN -->|Nuevo| VERIF["Verificación email"]
+    LOGIN --> DASH["Dashboard"]
+    VERIF --> DASH
+    DASH --> EDIT["Editar ficha"]
+    DASH --> RESENAS["Reseñas"]
+    DASH --> EVENTOS["Eventos"]
+    DASH --> STATS["Estadísticas"]
+    DASH -->|Quiere más visibilidad| PLAN["Plan de visibilidad"]
+    PLAN -->|Sigue gratis| BASICO["Plan básico"]
+    PLAN -->|Upgrade| PREMIUM["Plan premium<br/>primer mes gratis"]
+    PREMIUM --> PAGO["Pago + confirmación"]
+    PAGO --> ACTIVO["Premium activo"]
+    ACTIVO --> REWARD["Crear recompensa<br/>exclusivo Premium"]
+
+    style OPEN fill:#F1EFE8,color:#444441
+    style LOGIN fill:#FBEAF0,color:#72243E
+    style VERIF fill:#EEEDFE,color:#3C3489
+    style DASH fill:#FBEAF0,color:#72243E
+    style PLAN fill:#FAECE7,color:#712B13
+    style BASICO fill:#F1EFE8,color:#444441
+    style PREMIUM fill:#FAECE7,color:#712B13
+    style PAGO fill:#EEEDFE,color:#3C3489
+    style ACTIVO fill:#E1F5EE,color:#085041
+    style REWARD fill:#FAECE7,color:#712B13`}
+    ]
+  },
+
+  // ---------- LANDING ----------
+  {
+    group:'Landing', id:'landing-sitemap', label:'Sitemap',
+    title:'Sitemap — Landing', kicker:'Landing · arquitectura',
+    desc:'One-page scroll de 7 secciones con preview funcional, más 3 páginas vinculadas.',
+    cards:[
+      {h:'Home / scroll → páginas vinculadas', code:`graph TD
+    HOME["Home / Inicio"]
+    HOME --> HERO["Hero<br/>Tagline + CTA descarga + CTA scroll"]
+    HOME --> PQ["¿Por qué Tepux?<br/>Propósito + pilares + impacto"]
+    HOME --> EXP["La experiencia<br/>4 cards aspiracionales"]
+    HOME --> EXPLORA["Explora · preview funcional<br/>Buscador + fichas curadas"]
+    HOME --> ALIADOS["Aliados comerciales<br/>Beneficios + testimonio"]
+    HOME --> SOCIAL["Social proof<br/>Testimonios + gamificación"]
+    HOME --> CIERRE["Cierre + descarga<br/>Descubre lo inolvidable"]
+    HOME --> FOOTER["Footer<br/>Logo + redes + legal + newsletter"]
+
+    EXPLORA --> FICHA_P["Ficha preview<br/>PÁGINA"]
+    EXPLORA --> CTA_APP["Ver todo en la app<br/>EXTERNO"]
+
+    ALIADOS --> REG["Formulario registro<br/>PÁGINA"]
+    ALIADOS --> PLANES["Planes de visibilidad<br/>PÁGINA · MONETIZACIÓN"]
+    PLANES --> BASICO["Plan Básico · gratis"]
+    PLANES --> PREMIUM["Plan Premium · pago mensual"]
+
+    CIERRE --> STORES["App Store + Google Play<br/>EXTERNO"]
+
+    style HOME fill:#2C2C2A,color:#fff
+    style HERO fill:#EEEDFE,color:#3C3489
+    style PQ fill:#EEEDFE,color:#3C3489
+    style EXP fill:#EEEDFE,color:#3C3489
+    style EXPLORA fill:#E1F5EE,color:#085041
+    style ALIADOS fill:#EEEDFE,color:#3C3489
+    style SOCIAL fill:#EEEDFE,color:#3C3489
+    style CIERRE fill:#EEEDFE,color:#3C3489
+    style FOOTER fill:#EEEDFE,color:#3C3489
+    style FICHA_P fill:#E6F1FB,color:#0C447C
+    style CTA_APP fill:#FAEEDA,color:#633806
+    style REG fill:#E6F1FB,color:#0C447C
+    style PLANES fill:#FAC775,color:#633806
+    style BASICO fill:#E1F5EE,color:#085041
+    style PREMIUM fill:#FAECE7,color:#712B13
+    style STORES fill:#FAEEDA,color:#633806`}
+    ]
+  },
+  {
+    group:'Landing', id:'landing-flujo1', label:'Visitante · conversión',
+    title:'Visitante → conversión a descarga', kicker:'Landing · flujo 1',
+    desc:'Dos caminos: rápido (descarga directa) y lento (scroll completo antes de decidir).',
+    cards:[
+      {h:'Entrada → descarga', code:`graph TD
+    E["Entrada<br/>Google · RRSS · QR · referido"] --> HERO["Hero<br/>Tagline + contexto app"]
+    HERO -->|CTA primario| DL1["Descarga la app"]
+    HERO -->|CTA secundario| SCROLL["Explora un adelanto<br/>↓ scroll"]
+    SCROLL --> PQ["¿Por qué Tepux?<br/>Propósito + pilares"]
+    PQ --> EXP["La experiencia<br/>4 cards aspiracionales"]
+    EXP --> PREVIEW["Explora · preview<br/>Fichas curadas + buscador"]
+    PREVIEW --> PROOF["Social proof<br/>Testimonios + gamificación"]
+    PROOF --> DL2["Descarga la app"]
+    DL1 --> STORE["App Store / Play Store"]
+    DL2 --> STORE
+
+    style E fill:#F1EFE8,color:#444441
+    style HERO fill:#EEEDFE,color:#3C3489
+    style DL1 fill:#E1F5EE,color:#085041
+    style SCROLL fill:#EEEDFE,color:#3C3489
+    style PQ fill:#EEEDFE,color:#3C3489
+    style EXP fill:#EEEDFE,color:#3C3489
+    style PREVIEW fill:#E1F5EE,color:#085041
+    style PROOF fill:#EEEDFE,color:#3C3489
+    style DL2 fill:#E1F5EE,color:#085041
+    style STORE fill:#E1F5EE,color:#085041`}
+    ],
+  },
+  {
+    group:'Landing', id:'landing-flujo2', label:'Preview funcional',
+    title:'Preview funcional — loop de fichas', kicker:'Landing · flujo 2',
+    desc:'El usuario puede navegar varias fichas antes de decidir descargar. La ficha preview es intencionalmente incompleta — el gap informativo es el motor de conversión.',
+    cards:[
+      {h:'Grid o buscador → ficha preview → descarga o vuelve al loop', code:`graph TD
+    SEC["Sección Explora<br/>Grid de fichas + buscador"]
+
+    SEC -->|Navega grid| GRID["Ve fichas curadas"]
+    SEC -->|Usa buscador| BUSCA["Busca por nombre"]
+
+    GRID --> CLIC["Clic en una ficha"]
+    BUSCA --> CLIC
+
+    CLIC --> FICHA["Ficha preview · página<br/>Foto · nombre · categoría · ubicación"]
+
+    FICHA -->|Quiere más| CTA["CTA: ver en la app<br/>Descarga para ver todo"]
+    FICHA -->|Vuelve| LOOP["Vuelve al grid<br/>Explora otra ficha"]
+
+    LOOP --> SEC
+    CTA --> STORE["App Store"]
+
+    style SEC fill:#E1F5EE,color:#085041
+    style GRID fill:#EEEDFE,color:#3C3489
+    style BUSCA fill:#EEEDFE,color:#3C3489
+    style CLIC fill:#EEEDFE,color:#3C3489
+    style FICHA fill:#EEEDFE,color:#3C3489
+    style CTA fill:#E1F5EE,color:#085041
+    style LOOP fill:#F1EFE8,color:#444441
+    style STORE fill:#E1F5EE,color:#085041`}
+    ]
+  },
+  {
+    group:'Landing', id:'landing-flujo3', label:'Aliado comercial',
+    title:'Aliado comercial — registro + plan', kicker:'Landing · flujo 3',
+    desc:'CTA doble: registro directo para el convencido, planes para el que compara. El plan básico gratis reduce fricción de entrada.',
+    cards:[
+      {h:'Entrada → registro o comparación de planes → panel aliado', code:`graph TD
+    E["Entrada<br/>Scroll · Google · QR"] --> SEC["Sección aliados<br/>Beneficios + testimonio"]
+
+    SEC -->|Convencido| REG_DIR["Regístrate gratis"]
+    SEC -->|Quiere comparar| PLANES["Página de planes<br/>Básico vs Premium + FAQ"]
+
+    PLANES -->|Elige básico| BASICO["Plan básico · gratis"]
+    PLANES -->|Elige premium| PREMIUM["Plan premium"]
+
+    REG_DIR --> FORM["Formulario registro<br/>Datos del negocio + fotos"]
+    BASICO --> FORM
+    PREMIUM --> FORM
+
+    FORM --> CONFIRM["Confirmación + email<br/>Bienvenida + próximos pasos"]
+    CONFIRM --> PANEL["Panel aliado en la app<br/>Dashboard + editar ficha"]
+
+    style E fill:#F1EFE8,color:#444441
+    style SEC fill:#FAECE7,color:#712B13
+    style REG_DIR fill:#E1F5EE,color:#085041
+    style PLANES fill:#FAECE7,color:#712B13
+    style BASICO fill:#E1F5EE,color:#085041
+    style PREMIUM fill:#FAECE7,color:#712B13
+    style FORM fill:#EEEDFE,color:#3C3489
+    style CONFIRM fill:#EEEDFE,color:#3C3489
+    style PANEL fill:#E1F5EE,color:#085041`}
+    ]
+  },
+
+  // ---------- SISTEMA ----------
+  {
+    group:'Sistema', id:'gamificacion-sistema', label:'Gamificación',
+    title:'Sistema de gamificación', kicker:'Sistema · alcance del diplomado',
+    desc:'Transformar al observador pasivo en explorador activo. Alcance del diplomado: Rating + Insignias + Recompensas canjeables.',
+    cards:[
+      {h:'El loop de gamificación', code:`graph LR
+    A["👤 El usuario<br/>explora"] --> B["⭐ Gana<br/>puntos"]
+    B --> C["🏅 Desbloquea<br/>insignias"]
+    C --> D["🎁 Canjea<br/>recompensas"]
+    D --> E["🏪 El aliado<br/>recibe tráfico"]
+    E --> F["💰 Invierte en<br/>visibilidad"]
+    F --> A
+
+    style A fill:#FAECE7,color:#712B13
+    style B fill:#EEEDFE,color:#3C3489
+    style C fill:#E1F5EE,color:#085041
+    style D fill:#FAEEDA,color:#633806
+    style E fill:#FBEAF0,color:#72243E
+    style F fill:#E6F1FB,color:#0C447C`},
+      {h:'Niveles del explorador', code:`graph LR
+    L1["🟠 Nivel 1<br/>Curioso · 0 pts"] --> L2["🟢 Nivel 2<br/>Explorador · 250 pts"]
+    L2 --> L3["🟣 Nivel 3<br/>Guardián · 750 pts"]
+    L3 --> L4["🟡 Nivel 4<br/>Embajador · 1500 pts"]
+
+    style L1 fill:#FAECE7,color:#712B13
+    style L2 fill:#E1F5EE,color:#085041
+    style L3 fill:#EEEDFE,color:#3C3489
+    style L4 fill:#FAEEDA,color:#633806`},
+      {h:'Conexión con el modelo de negocio', code:`graph TD
+    G["🎮 Gamificación"] --> FREE["💚 Freemium<br/>Puntos gratis, recompensas premium<br/>en niveles altos → reduce churn"]
+    G --> PAT["🟠 Patrocinio<br/>Aliados crean recompensas<br/>canjeables = conversión"]
+    G --> EVT["🔵 Eventos<br/>Asistir da puntos bonus →<br/>más asistentes para organizadores"]
+    G --> RET["🟣 Retención<br/>Insignias pendientes + recompensas<br/>cercanas = FOMO positivo"]
+
+    style G fill:#2C2C2A,color:#fff
+    style FREE fill:#E1F5EE,color:#085041
+    style PAT fill:#FAEEDA,color:#633806
+    style EVT fill:#E6F1FB,color:#0C447C
+    style RET fill:#EEEDFE,color:#3C3489`}
+    ],
+    tables:[
+      {h:'Acciones que suman puntos', cols:['Acción','Puntos','Frecuencia','Nota'], rows:[
+        ['⭐ Puntuar un lugar (1-5)','+10','Por lugar','Solo 1 vez. Editable.'],
+        ['✍️ Escribir una reseña','+25','Por lugar','Mín. 30 caracteres. +10 con foto.'],
+        ['🧭 Completar una ruta','+100','Por ruta','Debe visitar todos los puntos.'],
+        ['❤️ Guardar un lugar','+5','Por lugar','Se resta si elimina.'],
+        ['📤 Compartir una ficha','+15','Por ficha','Máx. 3/día con puntos.'],
+        ['📅 Asistir a un evento','+50','Por evento','Confirmación manual o geo.'],
+      ]},
+      {h:'Niveles', cols:['Nivel','Nombre','Puntos','Desbloquea'], rows:[
+        ['🟠 1','Curioso','0','Acceso básico a todas las funciones'],
+        ['🟢 2','Explorador','250','Primera recompensa canjeable + badge en reseñas'],
+        ['🟣 3','Guardián','750','Recompensas premium + acceso anticipado a eventos'],
+        ['🟡 4','Embajador','1500','Todas las recompensas + badge dorado + créditos app'],
+      ]},
+      {h:'Insignias (6 iniciales)', cols:['Insignia','Requisito','Pilar de marca'], rows:[
+        ['🍽️ Catador del Sapoara','Puntuar 5 restaurantes o cafés','Sabor local'],
+        ['🏛️ Guardián del Patrimonio','Completar ruta del casco histórico','Memoria viva'],
+        ['📝 Cronista Bolivarense','Escribir 10 reseñas con foto','Participación activa'],
+        ['🧭 Explorador 360','Visitar 1 lugar de cada categoría','Experiencia completa'],
+        ['📢 Voz de la Ciudad','Compartir 10 fichas','Comunidad'],
+        ['🎉 Alma Festiva','Asistir a 3 eventos culturales','Vida cultural'],
+      ]},
+      {h:'Recompensas canjeables', cols:['Puntos','Recompensa','Nivel mínimo'], rows:[
+        ['100','☕ Café de cortesía','Explorador'],
+        ['250','🏨 10% descuento alojamiento (1 noche)','Explorador'],
+        ['500','🧭 Tour guiado gratuito casco histórico','Guardián'],
+        ['1000','✨ Experiencia exclusiva (cena, taller, paseo Orinoco)','Embajador'],
+      ]}
+    ]
+  }
+];
+
+const groups = ['App','Landing','Sistema'];
+const sidebarEl = document.getElementById('sidebar');
+const panelsEl = document.getElementById('panels');
+
+groups.forEach(g => {
+  const gdiv = document.createElement('div');
+  gdiv.className = 'group';
+  gdiv.innerHTML = `<div class="gh">${g}</div>`;
+  sections.filter(s => s.group === g).forEach((s, idx) => {
+    const btn = document.createElement('button');
+    const total = (s.cards||[]).length + (s.tables||[]).length;
+    btn.innerHTML = `<span>${s.label}</span><span class="cnt">${total}</span>`;
+    btn.dataset.target = s.id;
+    if (g === groups[0] && idx === 0) btn.classList.add('active');
+    btn.onclick = () => activate(s.id);
+    gdiv.appendChild(btn);
+  });
+  sidebarEl.appendChild(gdiv);
+});
+
+sections.forEach((s, i) => {
+  const sec = document.createElement('section');
+  sec.id = s.id;
+  if (i === 0) sec.classList.add('active');
+  let html = `<div class="kicker">${s.kicker}</div><h2>${s.title}</h2><p class="desc">${s.desc}</p>`;
+  (s.cards||[]).forEach((c, ci) => {
+    const cardId = `${s.id}-c${ci}`;
+    html += `<div class="card" id="${cardId}">
+      <div class="card-head">
+        <h3>${c.h}</h3>
+        <div class="toolbar">
+          <button data-act="out" title="Alejar">−</button>
+          <span class="lvl">100%</span>
+          <button data-act="in" title="Acercar">+</button>
+          <button data-act="fit" class="fit-btn" title="Ajustar a la vista">Ajustar</button>
+          <button data-act="expand" class="fs-btn" title="Pantalla completa">Ampliar ⤢</button>
+        </div>
+      </div>
+      <div class="viewport">
+        <div class="stage"><div class="mermaid">${c.code}</div></div>
+      </div>
+    </div>`;
+  });
+  if (s.note){
+    html += `<div class="card"><div class="note" style="border-top:none;padding-top:0;">${s.note}</div></div>`;
+  }
+  (s.tables||[]).forEach(t => {
+    html += `<div class="card"><h3>${t.h}</h3><table><thead><tr>${t.cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+    t.rows.forEach(r => { html += `<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`; });
+    html += `</tbody></table></div>`;
+  });
+  sec.innerHTML = html;
+  panelsEl.appendChild(sec);
+});
+
+const rendered = new Set();
+
+async function renderSection(id){
+  if (rendered.has(id)) return;
+  rendered.add(id);
+  const sec = document.getElementById(id);
+  const nodes = sec.querySelectorAll('.mermaid');
+  if (nodes.length) await mermaid.run({ nodes: Array.from(nodes) });
+  sec.querySelectorAll('.card').forEach(initZoomCard);
+}
+
+function activate(id){
+  document.querySelectorAll('.group button').forEach(b => b.classList.toggle('active', b.dataset.target===id));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id===id));
+  renderSection(id);
+}
+
+// ---------- Zoom / pan / ajustar / pantalla completa ----------
+
+function initZoomCard(card){
+  if (card.dataset.zoomReady) return;
+  card.dataset.zoomReady = '1';
+
+  const viewport = card.querySelector('.viewport');
+  const stage = card.querySelector('.stage');
+  const lvl = card.querySelector('.lvl');
+  if (!viewport || !stage) return;
+
+  let scale = 1, tx = 0, ty = 0;
+  let fitScale = 1;
+
+  function apply(){
+    stage.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    if (lvl) lvl.textContent = Math.round(scale * 100) + '%';
+  }
+
+  function fit(){
+    // el svg ya está en el DOM tras mermaid.run(); medir su tamaño real
+    const svg = stage.querySelector('svg');
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    if (!svg || !vw || !vh) { scale = 1; tx = 0; ty = 0; apply(); return; }
+    const box = svg.getBoundingClientRect();
+    const naturalW = box.width / (scale || 1);
+    const naturalH = box.height / (scale || 1);
+    if (!naturalW || !naturalH) { scale = 1; tx = 0; ty = 0; apply(); return; }
+    fitScale = Math.min(vw / naturalW, vh / naturalH, 1) * 0.94;
+    scale = fitScale;
+    tx = (vw - naturalW * scale) / 2;
+    ty = (vh - naturalH * scale) / 2;
+    apply();
+  }
+
+  function zoomBy(factor, cx, cy){
+    const rect = viewport.getBoundingClientRect();
+    const px = cx !== undefined ? cx - rect.left : viewport.clientWidth / 2;
+    const py = cy !== undefined ? cy - rect.top : viewport.clientHeight / 2;
+    const newScale = Math.min(12, Math.max(0.1, scale * factor));
+    const wx = (px - tx) / scale, wy = (py - ty) / scale;
+    scale = newScale;
+    tx = px - wx * scale;
+    ty = py - wy * scale;
+    apply();
+  }
+
+  // controles
+  card.querySelectorAll('.toolbar button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.act;
+      if (act === 'in') zoomBy(1.25);
+      else if (act === 'out') zoomBy(0.8);
+      else if (act === 'fit') fit();
+      else if (act === 'expand') toggleExpand(card, fit);
+    });
+  });
+
+  // rueda del mouse sobre el diagrama
+  viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY);
+  }, { passive: false });
+
+  // arrastrar para mover
+  let dragging = false, sx = 0, sy = 0, stx = 0, sty = 0;
+  viewport.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    viewport.classList.add('dragging');
+    viewport.setPointerCapture(e.pointerId);
+    sx = e.clientX; sy = e.clientY; stx = tx; sty = ty;
+  });
+  viewport.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    tx = stx + (e.clientX - sx);
+    ty = sty + (e.clientY - sy);
+    apply();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev =>
+    viewport.addEventListener(ev, () => { dragging = false; viewport.classList.remove('dragging'); })
+  );
+
+  // ajuste inicial (esperar un frame para que el SVG tenga layout)
+  requestAnimationFrame(() => requestAnimationFrame(fit));
+}
+
+function toggleExpand(card, fitFn){
+  const expanding = !card.classList.contains('expanded');
+  card.classList.toggle('expanded', expanding);
+  document.body.classList.toggle('has-expanded', expanding);
+  const btn = card.querySelector('[data-act="expand"]');
+  if (btn) btn.textContent = expanding ? 'Cerrar ✕' : 'Ampliar ⤢';
+  requestAnimationFrame(() => requestAnimationFrame(fitFn));
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const open = document.querySelector('.card.expanded');
+    if (open) open.querySelector('[data-act="expand"]').click();
+  }
+});
+
+// Sección visible al cargar la página
+renderSection(sections[0].id);
+</script>
+</body>
+</html>
