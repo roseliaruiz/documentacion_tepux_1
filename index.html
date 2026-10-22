@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Tepux — Arquitectura y flujos</title>
+<title>Bolívar 360 — Arquitectura y flujos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -104,7 +104,7 @@
 <div class="shell">
   <aside>
     <div class="brand">
-      <div class="k">Tepux · documentación</div>
+      <div class="k">Bolívar 360 · documentación</div>
       <h1>Arquitectura y flujos</h1>
     </div>
     <div id="sidebar"></div>
@@ -112,7 +112,7 @@
   <main id="panels"></main>
 </div>
 
-<footer>Tepux · documentación de producto · arrastra para mover, rueda del mouse para zoom</footer>
+<footer>Bolívar 360 · documentación de producto · arrastra para mover, rueda del mouse para zoom</footer>
 
 <script>
 mermaid.initialize({
@@ -135,8 +135,8 @@ const sections = [
     title:'Estructura de tabs', kicker:'App · arquitectura',
     desc:'Cinco tabs principales, onboarding y panel de aliado comercial como flujo separado.',
     cards:[
-      {h:'App Tepux — tabs y pantallas', code:`graph TD
-    APP["App Tepux"] --> OB["Onboarding<br/>Splash · 3 slides · perfil · permisos · gamificación"]
+      {h:'App Bolívar 360 — tabs y pantallas', code:`graph TD
+    APP["App Bolívar 360"] --> OB["Onboarding<br/>Splash · 3 slides · perfil · permisos · gamificación"]
     APP --> TAB1["Home"]
     APP --> TAB2["Explorar"]
     APP --> TAB3["Eventos"]
@@ -343,7 +343,7 @@ const sections = [
       {h:'Home / scroll → páginas vinculadas', code:`graph TD
     HOME["Home / Inicio"]
     HOME --> HERO["Hero<br/>Tagline + CTA descarga + CTA scroll"]
-    HOME --> PQ["¿Por qué Tepux?<br/>Propósito + pilares + impacto"]
+    HOME --> PQ["¿Por qué Bolívar 360?<br/>Propósito + pilares + impacto"]
     HOME --> EXP["La experiencia<br/>4 cards aspiracionales"]
     HOME --> EXPLORA["Explora · preview funcional<br/>Buscador + fichas curadas"]
     HOME --> ALIADOS["Aliados comerciales<br/>Beneficios + testimonio"]
@@ -388,7 +388,7 @@ const sections = [
     E["Entrada<br/>Google · RRSS · QR · referido"] --> HERO["Hero<br/>Tagline + contexto app"]
     HERO -->|CTA primario| DL1["Descarga la app"]
     HERO -->|CTA secundario| SCROLL["Explora un adelanto<br/>↓ scroll"]
-    SCROLL --> PQ["¿Por qué Tepux?<br/>Propósito + pilares"]
+    SCROLL --> PQ["¿Por qué Bolívar 360?<br/>Propósito + pilares"]
     PQ --> EXP["La experiencia<br/>4 cards aspiracionales"]
     EXP --> PREVIEW["Explora · preview<br/>Fichas curadas + buscador"]
     PREVIEW --> PROOF["Social proof<br/>Testimonios + gamificación"]
